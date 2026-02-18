@@ -1,0 +1,47 @@
+<!--
+  IMPORTANT: Replace this file with your actual GoogleService-Info.plist
+  
+  To get your GoogleService-Info.plist:
+  1. Go to https://console.firebase.google.com/
+  2. Select your project (or create one)
+  3. Click the iOS icon to add an iOS app
+  4. Register app with bundle ID: com.example.matchflix
+  5. Download the GoogleService-Info.plist file
+  6. Replace this file with the downloaded file in: ios/Runner/GoogleService-Info.plist
+  
+  The file should be an XML plist with keys like:
+  - CLIENT_ID
+  - REVERSED_CLIENT_ID
+  - API_KEY
+  - GCM_SENDER_ID
+  - PLIST_VERSION
+  - BUNDLE_ID
+  - PROJECT_ID
+  - STORAGE_BUCKET
+  - IS_ADS_ENABLED
+  - IS_ANALYTICS_ENABLED
+  - IS_APPINVITE_ENABLED
+  - IS_GCM_ENABLED
+  - IS_SIGNIN_ENABLED
+  - GOOGLE_APP_ID
+-->
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CLIENT_ID</key>
+  <string>YOUR_CLIENT_ID</string>
+  <key>REVERSED_CLIENT_ID</key>
+  <string>YOUR_REVERSED_CLIENT_ID</string>
+  <key>API_KEY</key>
+  <string>YOUR_API_KEY</string>
+  <key>GCM_SENDER_ID</key>
+  <string>YOUR_GCM_SENDER_ID</string>
+  <key>PROJECT_ID</key>
+  <string>matchflix</string>
+  <key>BUNDLE_ID</key>
+  <string>com.example.matchflix</string>
+  <key>GOOGLE_APP_ID</key>
+  <string>YOUR_GOOGLE_APP_ID</string>
+</dict>
+</plist>
