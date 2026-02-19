@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/models/room_model.dart';
 import '../viewmodels/room_viewmodel.dart';
 import '../widgets/loading_indicator.dart';
 import 'swipe_screen.dart';
@@ -57,7 +58,11 @@ class _RoomScreenState extends State<RoomScreen> {
 
   Future<void> _createRoom() async {
     final roomViewModel = context.read<RoomViewModel>();
-    await roomViewModel.createRoom();
+
+    // Convert UI filters to RoomFilters
+    final roomFilters = RoomFilters.fromFilterMap(widget.filters);
+
+    await roomViewModel.createRoom(filters: roomFilters);
 
     if (roomViewModel.errorMessage == null) {
       setState(() => _hasCreatedOrJoined = true);
@@ -113,9 +118,19 @@ class _RoomScreenState extends State<RoomScreen> {
           // Navigate to swipe screen when room is ready
           if (roomViewModel.isReadyToSwipe && _hasCreatedOrJoined) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
+              // Use filters from the room (applies to both creator and joiner)
+              final roomFilters =
+                  roomViewModel.currentRoom?.filters.toFilterMap() ?? {};
+
+              print('🎬 Navigating to SwipeScreen with room filters:');
+              print('   - Genres: ${roomFilters['selectedGenres']}');
+              print('   - Min Rating: ${roomFilters['minRating']}');
+              print(
+                  '   - Year: ${roomFilters['yearFrom']} - ${roomFilters['yearTo']}');
+
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
-                  builder: (context) => SwipeScreen(filters: widget.filters),
+                  builder: (context) => SwipeScreen(filters: roomFilters),
                 ),
               );
             });

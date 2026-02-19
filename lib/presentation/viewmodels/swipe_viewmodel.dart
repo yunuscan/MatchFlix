@@ -12,7 +12,7 @@ class SwipeViewModel extends ChangeNotifier {
   SwipeViewModel(this._tmdbService, this._firestoreService);
 
   // State variables
-  List<MovieModel> _movies = [];
+  final List<MovieModel> _movies = [];
   SwipeModel? _currentUserSwipes;
   bool _isLoading = false;
   String? _errorMessage;
@@ -38,8 +38,13 @@ class SwipeViewModel extends ChangeNotifier {
   int get totalDislikes => _currentUserSwipes?.dislikes.length ?? 0;
 
   /// Initialize movie fetching and swipe listening
-  Future<void> initialize(String roomId, {Map<String, dynamic> filters = const {}}) async {
-    _filters = filters;
+  Future<void> initialize(String roomId,
+      {Map<String, dynamic> filters = const {}}) async {
+    _filters = Map<String, dynamic>.from(filters); // Create mutable copy
+
+    // Debug: Print filters
+    print('🎬 SwipeViewModel initialized with filters: $_filters');
+
     _setLoading(true);
     _clearError();
 
@@ -50,11 +55,14 @@ class SwipeViewModel extends ChangeNotifier {
       // Fetch initial movies
       await _fetchMovies();
 
+      print('🎬 Loaded ${_movies.length} movies');
+
       // Listen to user's swipes
       _listenToSwipes(roomId);
 
       notifyListeners();
     } catch (e) {
+      print('❌ Error initializing: $e');
       _setError('Failed to initialize: $e');
     } finally {
       _setLoading(false);
@@ -64,37 +72,59 @@ class SwipeViewModel extends ChangeNotifier {
   /// Fetch movies from TMDB
   Future<void> _fetchMovies() async {
     try {
-      final List<int> genreIds = _filters['selectedGenres'] ?? [];
+      final List<int> genreIds =
+          List<int>.from(_filters['selectedGenres'] ?? []);
       final double minRating = _filters['minRating'] ?? 0.0;
-      final int yearFrom = _filters['yearFrom'] ?? 1900;
-      final int yearTo = _filters['yearTo'] ?? DateTime.now().year;
+      final int? yearFrom = _filters['yearFrom'];
+      final int? yearTo = _filters['yearTo'];
+
+      print('🔍 Fetching movies with filters:');
+      print('   - Genres: $genreIds');
+      print('   - Min Rating: $minRating');
+      print('   - Year: ${yearFrom ?? "any"} - ${yearTo ?? "any"}');
 
       List<MovieModel> newMovies;
-      
-      if (genreIds.isNotEmpty || minRating > 0 || yearFrom != 1900) {
+
+      // Only use discover API if filters are actually set
+      final hasFilters = genreIds.isNotEmpty ||
+          minRating > 0 ||
+          (yearFrom != null && yearFrom > 1900) ||
+          (yearTo != null && yearTo < DateTime.now().year);
+
+      if (hasFilters) {
         // Use discover API with filters
+        print('📡 Using discoverMovies API with filters');
         newMovies = await _tmdbService.discoverMovies(
           page: _currentPage,
-          genres: genreIds,
-          minRating: minRating,
+          genres: genreIds.isNotEmpty ? genreIds : null,
+          minRating: minRating > 0 ? minRating : null,
           yearFrom: yearFrom,
           yearTo: yearTo,
         );
       } else {
         // Use popular movies as default
+        print('📡 Using fetchPopularMovies API (no filters)');
         newMovies = await _tmdbService.fetchPopularMovies(page: _currentPage);
       }
 
+      print('✅ Fetched ${newMovies.length} movies on page $_currentPage');
+
       if (newMovies.isEmpty) {
         _hasMoreMovies = false;
+        print('⚠️ No more movies available');
       } else {
+        // Shuffle movies for variety
+        newMovies.shuffle();
         _movies.addAll(newMovies);
         _currentPage++;
       }
 
       notifyListeners();
     } catch (e) {
-      throw Exception('Failed to fetch movies: $e');
+      print('❌ Error fetching movies: $e');
+      _setError('Failed to fetch movies: $e');
+      notifyListeners();
+      // Don't throw, just set error state
     }
   }
 

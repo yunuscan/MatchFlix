@@ -50,8 +50,8 @@ class _FilterPanelState extends State<FilterPanel> {
     // Initialize defaults if not set
     _filters['selectedGenres'] ??= <int>[];
     _filters['minRating'] ??= 0.0;
-    _filters['yearFrom'] ??= 1990;
-    _filters['yearTo'] ??= DateTime.now().year;
+    _filters['yearFrom'] ??= null; // null = no filter
+    _filters['yearTo'] ??= null; // null = no filter
   }
 
   void _toggleGenre(int genreId) {
@@ -77,8 +77,8 @@ class _FilterPanelState extends State<FilterPanel> {
       _filters = {
         'selectedGenres': <int>[],
         'minRating': 0.0,
-        'yearFrom': 1990,
-        'yearTo': DateTime.now().year,
+        'yearFrom': null,
+        'yearTo': null,
       };
     });
   }
@@ -307,11 +307,19 @@ class _FilterPanelState extends State<FilterPanel> {
   }
 
   Widget _buildYearRange() {
-    final int yearFrom = _filters['yearFrom'] ?? 1990;
+    final int yearFrom = _filters['yearFrom'] ?? 1900;
     final int yearTo = _filters['yearTo'] ?? DateTime.now().year;
 
     return Column(
       children: [
+        const Text(
+          'Yıl filtresi kullanmak isterseniz başlangıç ve bitiş yılını seçin',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppTheme.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(

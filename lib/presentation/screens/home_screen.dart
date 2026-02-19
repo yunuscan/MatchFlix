@@ -15,8 +15,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic> _filters = {
     'selectedGenres': <int>[],
     'minRating': 0.0,
-    'yearFrom': 1990,
-    'yearTo': DateTime.now().year,
+    'yearFrom': null, // null = no filter
+    'yearTo': null, // null = no filter
   };
 
   void _showFilterPanel() {
@@ -228,10 +228,13 @@ class _HomeScreenState extends State<HomeScreen> {
   String _getFilterSummary() {
     final selectedGenres = _filters['selectedGenres'] as List<int>;
     final minRating = _filters['minRating'] as double;
-    final yearFrom = _filters['yearFrom'] as int;
-    final yearTo = _filters['yearTo'] as int;
+    final int? yearFrom = _filters['yearFrom'];
+    final int? yearTo = _filters['yearTo'];
 
-    if (selectedGenres.isEmpty && minRating == 0.0) {
+    if (selectedGenres.isEmpty &&
+        minRating == 0.0 &&
+        yearFrom == null &&
+        yearTo == null) {
       return 'Film Filtrele (Tümü)';
     }
 
@@ -242,8 +245,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (minRating > 0) {
       parts.add('⭐${minRating.toStringAsFixed(1)}+');
     }
-    if (yearFrom != 1990 || yearTo != DateTime.now().year) {
-      parts.add('$yearFrom-$yearTo');
+    if (yearFrom != null || yearTo != null) {
+      parts.add('${yearFrom ?? 1900}-${yearTo ?? DateTime.now().year}');
     }
 
     return 'Filtreler: ${parts.join(", ")}';

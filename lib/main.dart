@@ -9,6 +9,7 @@ import 'data/services/firestore_service.dart';
 import 'presentation/viewmodels/room_viewmodel.dart';
 import 'presentation/viewmodels/swipe_viewmodel.dart';
 import 'presentation/viewmodels/match_viewmodel.dart';
+import 'presentation/viewmodels/proposal_viewmodel.dart';
 import 'presentation/screens/home_screen.dart';
 
 void main() async {
@@ -74,6 +75,11 @@ class MatchFlixApp extends StatelessWidget {
           create: (context) => MatchViewModel(
             context.read<FirestoreService>(),
             context.read<TmdbService>(),
+          ),
+        ),
+        ChangeNotifierProvider<ProposalViewModel>(
+          create: (context) => ProposalViewModel(
+            context.read<FirestoreService>(),
           ),
         ),
       ],

@@ -28,6 +28,13 @@ class RoomViewModel extends ChangeNotifier {
     _clearError();
 
     try {
+      // Debug: Log filters being used to create room
+      print('🏠 Creating room with filters:');
+      print('   - Genres: ${filters?.genres ?? []}');
+      print('   - Min Rating: ${filters?.minRating ?? 0.0}');
+      print(
+          '   - Year: ${filters?.yearFrom ?? "any"} - ${filters?.yearTo ?? "any"}');
+
       final room = await _firestoreService.createRoom(filters: filters);
       _currentRoom = room;
 
@@ -50,6 +57,13 @@ class RoomViewModel extends ChangeNotifier {
     try {
       final room = await _firestoreService.joinRoom(roomCode);
       _currentRoom = room;
+
+      // Debug: Log received filters
+      print('🔍 Joined room with filters:');
+      print('   - Genres: ${room.filters.genres}');
+      print('   - Min Rating: ${room.filters.minRating}');
+      print(
+          '   - Year: ${room.filters.yearFrom ?? "any"} - ${room.filters.yearTo ?? "any"}');
 
       // Start listening to room updates
       _listenToRoom(room.roomId);

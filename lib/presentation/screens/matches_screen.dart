@@ -4,11 +4,33 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/helpers.dart';
 import '../viewmodels/match_viewmodel.dart';
+import '../viewmodels/proposal_viewmodel.dart';
 import '../widgets/loading_indicator.dart';
 
 /// Screen displaying all matched movies
-class MatchesScreen extends StatelessWidget {
-  const MatchesScreen({super.key});
+class MatchesScreen extends StatefulWidget {
+  final String roomId;
+  final String otherUserId;
+
+  const MatchesScreen({
+    super.key,
+    required this.roomId,
+    required this.otherUserId,
+  });
+
+  @override
+  State<MatchesScreen> createState() => _MatchesScreenState();
+}
+
+class _MatchesScreenState extends State<MatchesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Initialize proposal listener
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProposalViewModel>().initialize(widget.roomId);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +42,48 @@ class MatchesScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          // Pending proposals badge
+          Consumer<ProposalViewModel>(
+            builder: (context, proposalViewModel, child) {
+              final count = proposalViewModel.pendingProposalsCount;
+              if (count == 0) return const SizedBox.shrink();
+
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications),
+                    onPressed: () => _showProposalsDialog(context),
+                  ),
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: AppTheme.primaryRed,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '$count',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
       ),
       body: Consumer<MatchViewModel>(
         builder: (context, matchViewModel, child) {
@@ -63,7 +127,7 @@ class MatchesScreen extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppTheme.primaryRed,
                   shape: BoxShape.circle,
                 ),
@@ -116,7 +180,11 @@ class MatchesScreen extends StatelessWidget {
                   ),
                   itemCount: matchedMovies.length,
                   itemBuilder: (context, index) {
-                    return _MatchCard(movie: matchedMovies[index]);
+                    return _MatchCard(
+                      movie: matchedMovies[index],
+                      roomId: widget.roomId,
+                      otherUserId: widget.otherUserId,
+                    );
                   },
                 ),
         ),
@@ -171,7 +239,7 @@ class MatchesScreen extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppTheme.cardBackground,
               ),
@@ -220,11 +288,216 @@ class MatchesScreen extends StatelessWidget {
   }
 }
 
+/// Show proposals dialog
+void _showProposalsDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: AppTheme.cardBackground,
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 600, maxWidth: 400),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Title
+            const Row(
+              children: [
+                Icon(Icons.notifications, color: AppTheme.primaryRed),
+                SizedBox(width: 12),
+                Text(
+                  'Film Teklifleri',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Proposals list
+            Expanded(
+              child: Consumer<ProposalViewModel>(
+                builder: (context, proposalViewModel, child) {
+                  if (proposalViewModel.isLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final receivedProposals = proposalViewModel.receivedProposals;
+
+                  if (receivedProposals.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'Henüz teklif yok',
+                        style: TextStyle(color: AppTheme.textSecondary),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: receivedProposals.length,
+                    itemBuilder: (context, index) {
+                      final proposal = receivedProposals[index];
+                      return _ProposalCard(proposal: proposal);
+                    },
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Close button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('KAPAT'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Proposal card widget
+class _ProposalCard extends StatelessWidget {
+  final dynamic proposal;
+
+  const _ProposalCard({required this.proposal});
+
+  @override
+  Widget build(BuildContext context) {
+    final proposalViewModel = context.read<ProposalViewModel>();
+    final isPending = proposal.status.name == 'pending';
+
+    return Card(
+      color: AppTheme.darkBackground,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Movie title
+            Text(
+              proposal.movieTitle ?? 'Unknown Movie',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+
+            // Status or action buttons
+            if (isPending)
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final success = await proposalViewModel.acceptProposal(
+                          roomId: proposal.roomId,
+                          proposalId: proposal.proposalId,
+                        );
+
+                        if (!context.mounted) return;
+
+                        if (success) {
+                          // Show success dialog
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              backgroundColor: AppTheme.cardBackground,
+                              title: const Text(
+                                '🎉 Harika!',
+                                style: TextStyle(color: AppTheme.textPrimary),
+                              ),
+                              content: Text(
+                                '${proposal.movieTitle} filmini izlemeyi kabul ettiniz!',
+                                style: const TextStyle(
+                                    color: AppTheme.textSecondary),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context)
+                                        .pop(); // Close success dialog
+                                    Navigator.of(context)
+                                        .pop(); // Close proposals dialog
+                                  },
+                                  child: const Text('TAMAM'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.check, size: 20),
+                      label: const Text('Kabul Et'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.likeGreen,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await proposalViewModel.rejectProposal(
+                          roomId: proposal.roomId,
+                          proposalId: proposal.proposalId,
+                        );
+                      },
+                      icon: const Icon(Icons.close, size: 20),
+                      label: const Text('Reddet'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.dislikeRed,
+                        side: const BorderSide(color: AppTheme.dislikeRed),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Text(
+                proposalViewModel.getStatusText(proposal),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: proposal.status.name == 'accepted'
+                      ? AppTheme.likeGreen
+                      : AppTheme.textSecondary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Match card widget
 class _MatchCard extends StatelessWidget {
   final dynamic movie;
+  final String roomId;
+  final String otherUserId;
 
-  const _MatchCard({required this.movie});
+  const _MatchCard({
+    required this.movie,
+    required this.roomId,
+    required this.otherUserId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -474,13 +747,35 @@ class _MatchCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
 
-                // Close button
+                // Action buttons
                 SizedBox(
                   width: double.infinity,
                   child: Builder(
-                    builder: (context) => ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('CLOSE'),
+                    builder: (context) => Column(
+                      children: [
+                        // Propose button
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _sendProposal(context);
+                          },
+                          icon: const Icon(Icons.movie),
+                          label: const Text('TEKLIF GÖNDER'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryRed,
+                            minimumSize: const Size(double.infinity, 48),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Close button
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
+                          ),
+                          child: const Text('KAPAT'),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -488,6 +783,57 @@ class _MatchCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Send proposal to watch this movie
+  void _sendProposal(BuildContext context) async {
+    final proposalViewModel = context.read<ProposalViewModel>();
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    final success = await proposalViewModel.createProposal(
+      roomId: roomId,
+      movieId: movie.id?.toString() ?? '',
+      movieTitle: movie.title ?? 'Unknown',
+      moviePoster: movie.posterPath,
+      receiverUserId: otherUserId,
+    );
+
+    if (!context.mounted) return;
+
+    // Close loading dialog
+    Navigator.of(context).pop();
+
+    // Show result
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.cardBackground,
+        title: Text(
+          success ? '✅ Teklif Gönderildi!' : '❌ Hata',
+          style: const TextStyle(color: AppTheme.textPrimary),
+        ),
+        content: Text(
+          success
+              ? 'Film izleme teklifin karşı tarafa gönderildi. Yanıt bekleniyor...'
+              : proposalViewModel.error ?? 'Teklif gönderilemedi.',
+          style: const TextStyle(color: AppTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('TAMAM'),
+          ),
+        ],
       ),
     );
   }

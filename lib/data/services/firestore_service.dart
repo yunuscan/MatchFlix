@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/room_model.dart';
 import '../models/swipe_model.dart';
 import '../models/match_model.dart';
+import '../models/proposal_model.dart';
 import '../../core/utils/helpers.dart';
 import '../../core/constants/api_constants.dart';
 
@@ -356,6 +357,138 @@ class FirestoreService {
       // If document doesn't exist or other error, return false
       print('Error checking for match: $e');
       return false;
+    }
+  }
+
+  // ==================== PROPOSAL MANAGEMENT ====================
+
+  /// Create a movie watch proposal
+  Future<ProposalModel> createProposal({
+    required String roomId,
+    required String movieId,
+    required String movieTitle,
+    String? moviePoster,
+    required String receiverUserId,
+  }) async {
+    if (currentUserId == null) {
+      throw Exception('User must be authenticated');
+    }
+
+    try {
+      final proposalRef = _roomsCollection
+          .doc(roomId)
+          .collection('proposals')
+          .doc(); // Auto-generate ID
+
+      final proposal = ProposalModel(
+        proposalId: proposalRef.id,
+        roomId: roomId,
+        movieId: movieId,
+        movieTitle: movieTitle,
+        moviePoster: moviePoster,
+        proposerUserId: currentUserId!,
+        receiverUserId: receiverUserId,
+        status: ProposalStatus.pending,
+        createdAt: DateTime.now(),
+      );
+
+      await proposalRef.set(proposal.toFirestore());
+      return proposal;
+    } catch (e) {
+      throw Exception('Failed to create proposal: $e');
+    }
+  }
+
+  /// Respond to a proposal (accept/reject)
+  Future<void> respondToProposal({
+    required String roomId,
+    required String proposalId,
+    required ProposalStatus status,
+  }) async {
+    if (currentUserId == null) {
+      throw Exception('User must be authenticated');
+    }
+
+    if (status != ProposalStatus.accepted &&
+        status != ProposalStatus.rejected) {
+      throw Exception('Invalid response status');
+    }
+
+    try {
+      await _roomsCollection
+          .doc(roomId)
+          .collection('proposals')
+          .doc(proposalId)
+          .update({
+        'status': status.name,
+        'respondedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to respond to proposal: $e');
+    }
+  }
+
+  /// Cancel a proposal (only proposer can cancel)
+  Future<void> cancelProposal({
+    required String roomId,
+    required String proposalId,
+  }) async {
+    if (currentUserId == null) {
+      throw Exception('User must be authenticated');
+    }
+
+    try {
+      await _roomsCollection
+          .doc(roomId)
+          .collection('proposals')
+          .doc(proposalId)
+          .update({
+        'status': ProposalStatus.cancelled.name,
+        'respondedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to cancel proposal: $e');
+    }
+  }
+
+  /// Listen to proposals for current user (both sent and received)
+  Stream<List<ProposalModel>> listenToProposals(String roomId) {
+    if (currentUserId == null) {
+      throw Exception('User must be authenticated');
+    }
+
+    return _roomsCollection
+        .doc(roomId)
+        .collection('proposals')
+        .where(Filter.or(
+          Filter('proposerUserId', isEqualTo: currentUserId!),
+          Filter('receiverUserId', isEqualTo: currentUserId!),
+        ))
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => ProposalModel.fromFirestore(doc))
+          .toList();
+    });
+  }
+
+  /// Get pending proposals count
+  Future<int> getPendingProposalsCount(String roomId) async {
+    if (currentUserId == null) return 0;
+
+    try {
+      final snapshot = await _roomsCollection
+          .doc(roomId)
+          .collection('proposals')
+          .where('receiverUserId', isEqualTo: currentUserId!)
+          .where('status', isEqualTo: ProposalStatus.pending.name)
+          .get();
+
+      return snapshot.docs.length;
+    } catch (e) {
+      print('Error getting pending proposals count: $e');
+      return 0;
     }
   }
 }

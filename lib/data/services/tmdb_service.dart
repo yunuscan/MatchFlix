@@ -102,10 +102,10 @@ class TmdbService {
       }
 
       // Add year filters if provided
-      if (yearFrom != null) {
+      if (yearFrom != null && yearFrom > 1900) {
         queryParams['primary_release_date.gte'] = '$yearFrom-01-01';
       }
-      if (yearTo != null) {
+      if (yearTo != null && yearTo < DateTime.now().year + 1) {
         queryParams['primary_release_date.lte'] = '$yearTo-12-31';
       }
 
@@ -113,16 +113,23 @@ class TmdbService {
         '${ApiConstants.tmdbBaseUrl}${ApiConstants.discoverMoviesEndpoint}',
       ).replace(queryParameters: queryParams);
 
+      print('🌐 TMDB API Request: $url');
+
       final response = await _client.get(url);
+
+      print('📥 TMDB Response: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
         final results = jsonData['results'] as List<dynamic>;
+        print('✅ TMDB returned ${results.length} movies');
         return results.map((movie) => MovieModel.fromJson(movie)).toList();
       } else {
+        print('❌ TMDB Error: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to discover movies: ${response.statusCode}');
       }
     } catch (e) {
+      print('❌ TMDB Exception: $e');
       throw Exception('Error discovering movies: $e');
     }
   }

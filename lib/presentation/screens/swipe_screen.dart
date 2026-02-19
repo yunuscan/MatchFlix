@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_card_swiper/flutter_card_swiper.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/services/firestore_service.dart';
 import '../viewmodels/room_viewmodel.dart';
 import '../viewmodels/swipe_viewmodel.dart';
 import '../viewmodels/match_viewmodel.dart';
@@ -169,9 +170,105 @@ class _SwipeScreenState extends State<SwipeScreen> {
               padding: const EdgeInsets.all(24),
               cardBuilder:
                   (context, index, percentThresholdX, percentThresholdY) {
-                return MovieCard(
-                  movie: swipeViewModel.movies[index],
-                  genreMap: swipeViewModel.genreMap,
+                // Build card with dynamic swipe overlays
+                return Stack(
+                  children: [
+                    // The movie card
+                    MovieCard(
+                      movie: swipeViewModel.movies[index],
+                      genreMap: swipeViewModel.genreMap,
+                    ),
+
+                    // Dynamic LIKE overlay (shown when swiping right)
+                    if (percentThresholdX > 0)
+                      Positioned.fill(
+                        child: Opacity(
+                          opacity: ((percentThresholdX * 2) as double).clamp(0.0, 1.0),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: AppTheme.likeGreen,
+                                width: 8,
+                              ),
+                            ),
+                            child: Center(
+                              child: Transform.rotate(
+                                angle: -0.3, // Tilted like "APPROVED" stamp
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 32,
+                                    vertical: 16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.6),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Text(
+                                    'LIKE',
+                                    style: TextStyle(
+                                      fontSize: 72,
+                                      fontWeight: FontWeight.w900,
+                                      color: AppTheme.likeGreen,
+                                      letterSpacing: 8,
+                                      foreground: Paint()
+                                        ..style = PaintingStyle.stroke
+                                        ..strokeWidth = 8
+                                        ..color = AppTheme.likeGreen,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Dynamic NOPE overlay (shown when swiping left)
+                    if (percentThresholdX < 0)
+                      Positioned.fill(
+                        child: Opacity(
+                          opacity: ((percentThresholdX.abs() * 2) as double).clamp(0.0, 1.0),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: AppTheme.dislikeRed,
+                                width: 8,
+                              ),
+                            ),
+                            child: Center(
+                              child: Transform.rotate(
+                                angle: 0.3, // Tilted opposite direction
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 32,
+                                    vertical: 16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.6),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Text(
+                                    'NOPE',
+                                    style: TextStyle(
+                                      fontSize: 72,
+                                      fontWeight: FontWeight.w900,
+                                      color: AppTheme.dislikeRed,
+                                      letterSpacing: 8,
+                                      foreground: Paint()
+                                        ..style = PaintingStyle.stroke
+                                        ..strokeWidth = 8
+                                        ..color = AppTheme.dislikeRed,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 );
               },
               onSwipe: (previousIndex, currentIndex, direction) {
@@ -380,9 +477,9 @@ class _SwipeScreenState extends State<SwipeScreen> {
             color: AppTheme.dislikeRed,
           ),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'Oops!',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: AppTheme.textPrimary,
@@ -407,48 +504,152 @@ class _SwipeScreenState extends State<SwipeScreen> {
 
   /// Build no movies view
   Widget _buildNoMovies() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.movie_filter_outlined,
-            size: 80,
-            color: AppTheme.textSecondary,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No more movies',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+    return Consumer<SwipeViewModel>(
+      builder: (context, swipeViewModel, _) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.movie_filter_outlined,
+                  size: 80,
+                  color: AppTheme.textSecondary,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'No Movies Found',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  swipeViewModel.errorMessage ??
+                      'Try adjusting your filters or check your matches!',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: AppTheme.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => _retryLoading(swipeViewModel),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('RETRY'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryRed,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    OutlinedButton.icon(
+                      onPressed: () => _navigateToMatches(),
+                      icon: const Icon(Icons.favorite),
+                      label: const Text('MATCHES'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryRed,
+                        side: const BorderSide(color: AppTheme.primaryRed),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (swipeViewModel.errorMessage != null) ...[
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dislikeRed.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.dislikeRed.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.error_outline,
+                                color: AppTheme.dislikeRed),
+                            SizedBox(width: 8),
+                            Text(
+                              'Error Details:',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          swipeViewModel.errorMessage!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Check your matches!',
-            style: TextStyle(
-              fontSize: 16,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _navigateToMatches(),
-            icon: const Icon(Icons.favorite),
-            label: const Text('VIEW MATCHES'),
-          ),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  /// Retry loading movies
+  Future<void> _retryLoading(SwipeViewModel swipeViewModel) async {
+    final roomViewModel = context.read<RoomViewModel>();
+    if (roomViewModel.currentRoom != null) {
+      await swipeViewModel.initialize(
+        roomViewModel.currentRoom!.roomId,
+        filters: widget.filters,
+      );
+    }
   }
 
   /// Navigate to matches screen
   void _navigateToMatches() {
+    final roomViewModel = context.read<RoomViewModel>();
+    final firestoreService = context.read<FirestoreService>();
+
+    final roomId = roomViewModel.currentRoom?.roomId;
+    if (roomId == null) return;
+
+    // Find other user in the room
+    final participants = roomViewModel.currentRoom?.participants ?? [];
+    final currentUserId = firestoreService.currentUserId;
+    final otherUserId = participants.firstWhere(
+      (id) => id != currentUserId,
+      orElse: () => '',
+    );
+
+    if (otherUserId.isEmpty) return;
+
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => const MatchesScreen(),
+        builder: (context) => MatchesScreen(
+          roomId: roomId,
+          otherUserId: otherUserId,
+        ),
       ),
     );
   }

@@ -80,11 +80,15 @@ class RoomModel {
 class RoomFilters {
   final List<int> genres;
   final double minRating;
+  final int? yearFrom;
+  final int? yearTo;
   final List<String> providers;
 
   RoomFilters({
     this.genres = const [],
     this.minRating = 0.0,
+    this.yearFrom,
+    this.yearTo,
     this.providers = const [],
   });
 
@@ -94,6 +98,8 @@ class RoomFilters {
           (json['genres'] as List<dynamic>?)?.map((e) => e as int).toList() ??
               [],
       minRating: (json['minRating'] as num?)?.toDouble() ?? 0.0,
+      yearFrom: json['yearFrom'] as int?,
+      yearTo: json['yearTo'] as int?,
       providers: (json['providers'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
@@ -101,10 +107,37 @@ class RoomFilters {
     );
   }
 
+  /// Create RoomFilters from UI filter map
+  factory RoomFilters.fromFilterMap(Map<String, dynamic> filterMap) {
+    final selectedGenres = filterMap['selectedGenres'] as List<int>? ?? [];
+    final minRating = filterMap['minRating'] as double? ?? 0.0;
+    final yearFrom = filterMap['yearFrom'] as int?;
+    final yearTo = filterMap['yearTo'] as int?;
+
+    return RoomFilters(
+      genres: selectedGenres,
+      minRating: minRating,
+      yearFrom: yearFrom,
+      yearTo: yearTo,
+    );
+  }
+
+  /// Convert to UI filter map format
+  Map<String, dynamic> toFilterMap() {
+    return {
+      'selectedGenres': genres,
+      'minRating': minRating,
+      'yearFrom': yearFrom,
+      'yearTo': yearTo,
+    };
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'genres': genres,
       'minRating': minRating,
+      'yearFrom': yearFrom,
+      'yearTo': yearTo,
       'providers': providers,
     };
   }
